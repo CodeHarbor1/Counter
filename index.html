@@ -110,7 +110,7 @@
       <button class="btn primary" id="resetValuesDefault" type="button">Reset all values to default</button>
     </section>
     <section id="counterGrid" class="grid" aria-label="Counters"></section>
-    <p class="footer">Press and hold + or − to keep counting. Your settings are saved on this device.</p>
+    <p class="footer">Press and hold + or − to keep counting.</p>
   </main>
 
   <div class="overlay" id="optionsOverlay" role="dialog" aria-modal="true" aria-labelledby="optionsTitle">
@@ -170,7 +170,6 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "counter-board-v1";
     const defaults = {
       count: 4, defaultValue: 0, boxText: "Counter {n}", boxNames: ["", "", "", ""],
       pageColor: "#171923", boxColor: "#2c3248",
@@ -183,23 +182,10 @@
     let activePointer = null;
 
     function loadSettings() {
-      try {
-        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        if (!saved || typeof saved !== "object") return structuredClone(defaults);
-        const merged = { ...defaults, ...saved };
-        merged.count = clamp(Math.round(Number(merged.count) || 1), 1, 20);
-        merged.defaultValue = Number.isFinite(Number(merged.defaultValue)) ? Number(merged.defaultValue) : 0;
-        merged.values = Array.isArray(merged.values) ? merged.values.slice(0, 20).map(v => Number(v) || 0) : [];
-        while (merged.values.length < merged.count) merged.values.push(merged.defaultValue);
-        merged.values.length = merged.count;
-        merged.boxNames = Array.isArray(merged.boxNames) ? merged.boxNames.slice(0, 20).map(v => String(v || "")) : [];
-        while (merged.boxNames.length < merged.count) merged.boxNames.push("");
-        merged.boxNames.length = merged.count;
-        return merged;
-      } catch { return structuredClone(defaults); }
+      return structuredClone(defaults);
     }
     function saveSettings() {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
+      // Settings are kept only in memory and reset when the page is reloaded.
     }
     function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
     function boxLabel(index) {
