@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#171923">
+  <title>Counter</title>
+  <style>
+    :root {
+      --page: #171923;
+      --panel: #222638;
+      --panel-2: #2c3248;
+      --text: #f5f6fb;
+      --muted: #aab1c5;
+      --accent: #7c8cff;
+      --accent-2: #596be8;
+      --danger: #e36b78;
+      --border: rgba(255,255,255,.10);
+      --tile: #2c3248;
+      --tile-text: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 24px;
+      background: radial-gradient(ellipse at top, #282e45 0, var(--page) 58%);
+      color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { width: min(100%, 1000px); margin: 0 auto; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:28px; }
+    h1 { margin:0; font-size:clamp(1.7rem, 4vw, 2.25rem); letter-spacing:-.04em; }
+    .sub { color:var(--muted); margin:6px 0 0; font-size:.92rem; }
+    .header-actions { display:flex; gap:10px; }
+    .btn {
+      border:1px solid var(--border); border-radius:12px; padding:10px 15px;
+      color:var(--text); background:var(--panel-2); font-weight:650;
+      transition: transform .12s, filter .12s, background .12s;
+    }
+    .btn:hover { filter:brightness(1.12); }
+    .btn:active { transform:scale(.97); }
+    .btn.primary { background:var(--accent); border-color:transparent; color:#fff; }
+    .btn.danger { color:#ffdce0; background:rgba(227,107,120,.13); border-color:rgba(227,107,120,.28); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 265px), 1fr)); gap:16px; }
+    .counter {
+      background:linear-gradient(155deg, color-mix(in srgb, var(--tile) 92%, white 8%), var(--tile));
+      color:var(--tile-text); border:1px solid var(--border); border-radius:22px;
+      padding:20px; min-height:240px; display:flex; flex-direction:column;
+      box-shadow:0 14px 35px rgba(0,0,0,.18);
+    }
+    .counter-top { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+    .counter-name { font-weight:750; font-size:1rem; overflow-wrap:anywhere; }
+    .counter-number { flex:1; display:grid; place-items:center; font-size:clamp(3.6rem, 11vw, 5.5rem); font-weight:800; letter-spacing:-.06em; font-variant-numeric:tabular-nums; padding:12px 0; }
+    .controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .step {
+      border:0; border-radius:14px; min-height:56px; font-size:1.8rem; font-weight:700;
+      color:var(--tile-text); background:rgba(255,255,255,.14); touch-action:none;
+      user-select:none; -webkit-user-select:none;
+    }
+    .step:hover { background:rgba(255,255,255,.22); }
+    .step:active, .step.held { background:rgba(255,255,255,.30); transform:scale(.98); }
+    .step span { display:block; font-size:.72rem; font-weight:650; opacity:.75; margin-top:-3px; }
+    .empty { text-align:center; color:var(--muted); padding:54px 20px; border:1px dashed var(--border); border-radius:20px; }
+    .footer { color:var(--muted); font-size:.82rem; text-align:center; margin:24px 0 0; }
+    .overlay { position:fixed; inset:0; z-index:5; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(5,7,14,.72); backdrop-filter:blur(8px); }
+    .overlay.open { display:flex; }
+    .modal { width:min(100%, 540px); max-height:min(90vh, 850px); overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:22px; padding:22px; box-shadow:0 24px 80px rgba(0,0,0,.4); }
+    .modal-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+    .modal h2 { margin:0; font-size:1.35rem; }
+    .close { border:0; color:var(--muted); background:transparent; font-size:1.6rem; padding:0 5px; }
+    .field { margin:15px 0; }
+    .field label { display:block; font-weight:650; margin-bottom:7px; font-size:.9rem; }
+    .field input[type="text"], .field input[type="number"], .field select {
+      width:100%; border:1px solid var(--border); background:#171b2a; color:var(--text);
+      border-radius:10px; padding:11px 12px; outline:none;
+    }
+    .field input:focus, .field select:focus { border-color:var(--accent); }
+    .field small { display:block; color:var(--muted); margin-top:6px; }
+    .color-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    input[type="color"] { width:100%; height:43px; padding:3px; border:1px solid var(--border); border-radius:10px; background:#171b2a; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
+    .option-divider { border:0; border-top:1px solid var(--border); margin:20px 0; }
+    @media (max-width:560px) {
+      body { padding:18px 14px; }
+      header { align-items:flex-start; }
+      .header-actions { flex-direction:column; }
+      .header-actions .btn { padding:9px 12px; }
+      .counter { min-height:220px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Counter</h1>
+        <p class="sub">A simple, customizable counter board</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn" id="optionsBtn" type="button">⚙ Options</button>
+        <button class="btn danger" id="resetBtn" type="button">↺ Reset all</button>
+      </div>
+    </header>
+    <section id="counterGrid" class="grid" aria-label="Counters"></section>
+    <p class="footer">Press and hold + or − to keep counting. Your settings are saved on this device.</p>
+  </main>
+
+  <div class="overlay" id="optionsOverlay" role="dialog" aria-modal="true" aria-labelledby="optionsTitle">
+    <section class="modal">
+      <div class="modal-head">
+        <h2 id="optionsTitle">Counter options</h2>
+        <button class="close" id="closeOptions" type="button" aria-label="Close options">×</button>
+      </div>
+      <div class="field">
+        <label for="boxCount">Number of boxes</label>
+        <input id="boxCount" type="number" min="1" max="20" step="1">
+        <small>Choose between 1 and 20 counters.</small>
+      </div>
+      <div class="field">
+        <label for="defaultValue">Default value</label>
+        <input id="defaultValue" type="number" step="1">
+        <small>Used when you reset all counters or add a box.</small>
+      </div>
+      <div class="field">
+        <label for="boxText">Default box text</label>
+        <input id="boxText" type="text" maxlength="32" placeholder="Counter {n}">
+        <small>Used for boxes without an individual name. Use {n} for the box number.</small>
+      </div>
+      <div class="field">
+        <label>Individual box names</label>
+        <div id="individualNames"></div>
+        <small>Leave a name blank to use the default box text above.</small>
+      </div>
+      <hr class="option-divider">
+      <div class="color-row">
+        <div class="field">
+          <label for="pageColor">Page color</label>
+          <input id="pageColor" type="color">
+        </div>
+        <div class="field">
+          <label for="boxColor">Box color</label>
+          <input id="boxColor" type="color">
+        </div>
+      </div>
+      <div class="color-row">
+        <div class="field">
+          <label for="accentColor">Button color</label>
+          <input id="accentColor" type="color">
+        </div>
+        <div class="field">
+          <label for="textColor">Text color</label>
+          <input id="textColor" type="color">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="cancelOptions" type="button">Cancel</button>
+        <button class="btn primary" id="saveOptions" type="button">Save options</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "counter-board-v1";
+    const defaults = {
+      count: 4, defaultValue: 0, boxText: "Counter {n}", boxNames: ["", "", "", ""],
+      pageColor: "#171923", boxColor: "#2c3248",
+      accentColor: "#7c8cff", textColor: "#ffffff",
+      values: [0, 0, 0, 0]
+    };
+    let settings = loadSettings();
+    let holdTimer = null;
+    let holdDelay = null;
+    let activePointer = null;
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!saved || typeof saved !== "object") return structuredClone(defaults);
+        const merged = { ...defaults, ...saved };
+        merged.count = clamp(Math.round(Number(merged.count) || 1), 1, 20);
+        merged.defaultValue = Number.isFinite(Number(merged.defaultValue)) ? Number(merged.defaultValue) : 0;
+        merged.values = Array.isArray(merged.values) ? merged.values.slice(0, 20).map(v => Number(v) || 0) : [];
+        while (merged.values.length < merged.count) merged.values.push(merged.defaultValue);
+        merged.values.length = merged.count;
+        merged.boxNames = Array.isArray(merged.boxNames) ? merged.boxNames.slice(0, 20).map(v => String(v || "")) : [];
+        while (merged.boxNames.length < merged.count) merged.boxNames.push("");
+        merged.boxNames.length = merged.count;
+        return merged;
+      } catch { return structuredClone(defaults); }
+    }
+    function saveSettings() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
+    }
+    function clamp(value, min, max) { return Math.min(max, Math.max(min, value)); }
+    function boxLabel(index) {
+      const individualName = (settings.boxNames[index] || "").trim();
+      if (individualName) return individualName;
+      const template = (settings.boxText || "Counter {n}").trim() || "Counter {n}";
+      return template.replaceAll("{n}", String(index + 1));
+    }
+    function applyColors() {
+      document.documentElement.style.setProperty("--page", settings.pageColor);
+      document.documentElement.style.setProperty("--tile", settings.boxColor);
+      document.documentElement.style.setProperty("--accent", settings.accentColor);
+      document.documentElement.style.setProperty("--accent-2", settings.accentColor);
+      document.documentElement.style.setProperty("--tile-text", settings.textColor);
+      document.querySelector('meta[name="theme-color"]').content = settings.pageColor;
+    }
+    function render() {
+      applyColors();
+      const grid = document.getElementById("counterGrid");
+      grid.innerHTML = "";
+      for (let i = 0; i < settings.count; i++) {
+        const card = document.createElement("article");
+        card.className = "counter";
+        const top = document.createElement("div");
+        top.className = "counter-top";
+        const name = document.createElement("div");
+        name.className = "counter-name";
+        name.textContent = boxLabel(i);
+        top.append(name);
+        const number = document.createElement("div");
+        number.className = "counter-number";
+        number.id = `counter-value-${i}`;
+        number.textContent = settings.values[i];
+        const controls = document.createElement("div");
+        controls.className = "controls";
+        controls.append(makeStepButton(i, -1), makeStepButton(i, 1));
+        card.append(top, number, controls);
+        grid.append(card);
+      }
+    }
+    function makeStepButton(index, direction) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "step";
+      button.setAttribute("aria-label", `${direction > 0 ? "Increase" : "Decrease"} ${boxLabel(index)}`);
+      button.innerHTML = direction > 0 ? "+<span>Increase</span>" : "−<span>Decrease</span>";
+      button.addEventListener("pointerdown", event => startHold(event, index, direction, button));
+      button.addEventListener("pointerup", stopHold);
+      button.addEventListener("pointerleave", stopHold);
+      button.addEventListener("pointercancel", stopHold);
+      button.addEventListener("contextmenu", event => event.preventDefault());
+      button.addEventListener("keydown", event => {
+        if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+          event.preventDefault(); changeValue(index, direction);
+        }
+      });
+      return button;
+    }
+    function changeValue(index, direction) {
+      settings.values[index] += direction;
+      const value = document.getElementById(`counter-value-${index}`);
+      if (value) value.textContent = settings.values[index];
+      saveSettings();
+    }
+    function startHold(event, index, direction, button) {
+      if (event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      stopHold();
+      activePointer = event.pointerId;
+      button.classList.add("held");
+      changeValue(index, direction);
+      holdDelay = setTimeout(() => {
+        holdTimer = setInterval(() => changeValue(index, direction), 85);
+      }, 350);
+    }
+    function stopHold() {
+      clearTimeout(holdDelay);
+      clearInterval(holdTimer);
+      holdDelay = holdTimer = null;
+      document.querySelectorAll(".step.held").forEach(button => button.classList.remove("held"));
+      activePointer = null;
+    }
+
+    const overlay = document.getElementById("optionsOverlay");
+    function openOptions() {
+      document.getElementById("boxCount").value = settings.count;
+      document.getElementById("defaultValue").value = settings.defaultValue;
+      document.getElementById("boxText").value = settings.boxText;
+      renderNameInputs(settings.count, settings.boxNames);
+      document.getElementById("pageColor").value = settings.pageColor;
+      document.getElementById("boxColor").value = settings.boxColor;
+      document.getElementById("accentColor").value = settings.accentColor;
+      document.getElementById("textColor").value = settings.textColor;
+      overlay.classList.add("open");
+    }
+    function renderNameInputs(count, names) {
+      const container = document.getElementById("individualNames");
+      container.innerHTML = "";
+      for (let i = 0; i < count; i++) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "field";
+        wrapper.style.margin = "9px 0";
+        const label = document.createElement("label");
+        label.htmlFor = `individual-name-${i}`;
+        label.textContent = `Box ${i + 1}`;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.id = `individual-name-${i}`;
+        input.maxLength = 32;
+        input.placeholder = boxLabel(i);
+        input.value = names[i] || "";
+        input.dataset.boxNameIndex = i;
+        input.style.width = "100%";
+        input.style.border = "1px solid var(--border)";
+        input.style.background = "#171b2a";
+        input.style.color = "var(--text)";
+        input.style.borderRadius = "10px";
+        input.style.padding = "11px 12px";
+        wrapper.append(label, input);
+        container.append(wrapper);
+      }
+    }
+    function closeOptions() { overlay.classList.remove("open"); }
+    document.getElementById("optionsBtn").addEventListener("click", openOptions);
+    document.getElementById("closeOptions").addEventListener("click", closeOptions);
+    document.getElementById("cancelOptions").addEventListener("click", closeOptions);
+    overlay.addEventListener("click", event => { if (event.target === overlay) closeOptions(); });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeOptions();
+    });
+    document.getElementById("saveOptions").addEventListener("click", () => {
+      const newCount = clamp(Math.round(Number(document.getElementById("boxCount").value) || 1), 1, 20);
+      const newDefault = Number(document.getElementById("defaultValue").value);
+      settings.count = newCount;
+      settings.defaultValue = Number.isFinite(newDefault) ? newDefault : 0;
+      settings.boxText = document.getElementById("boxText").value.trim() || "Counter {n}";
+      settings.boxNames = Array.from({ length: newCount }, (_, i) => {
+        const input = document.getElementById(`individual-name-${i}`);
+        return input ? input.value.trim() : (settings.boxNames[i] || "");
+      });
+      settings.pageColor = document.getElementById("pageColor").value;
+      settings.boxColor = document.getElementById("boxColor").value;
+      settings.accentColor = document.getElementById("accentColor").value;
+      settings.textColor = document.getElementById("textColor").value;
+      settings.values = settings.values.slice(0, newCount);
+      while (settings.values.length < newCount) settings.values.push(settings.defaultValue);
+      saveSettings();
+      render();
+      closeOptions();
+    });
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      if (!confirm("Reset every counter to the default value?")) return;
+      settings.values = Array(settings.count).fill(settings.defaultValue);
+      saveSettings();
+      render();
+    });
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stopHold(); });
+    window.addEventListener("blur", stopHold);
+    render();
+  </script>
+</body>
+</html>
