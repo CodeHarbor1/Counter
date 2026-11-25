@@ -76,6 +76,10 @@
     }
     .field input:focus, .field select:focus { border-color:var(--accent); }
     .field small { display:block; color:var(--muted); margin-top:6px; }
+    .stepper { display:flex; flex-direction:row; align-items:center; gap:8px; width:100%; }
+    .stepper button { flex:0 0 44px; min-height:42px; border:1px solid var(--border); border-radius:10px; color:var(--text); background:var(--panel-2); font-size:1.25rem; font-weight:750; touch-action:none; user-select:none; -webkit-user-select:none; }
+    .stepper button:active, .stepper button.held { background:var(--accent); color:#fff; }
+    .stepper input { flex:1 1 auto; min-width:0; width:0; text-align:center; }
     .color-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     input[type="color"] { width:100%; height:43px; padding:3px; border:1px solid var(--border); border-radius:10px; background:#171b2a; }
     .modal-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; }
@@ -98,9 +102,13 @@
       </div>
       <div class="header-actions">
         <button class="btn" id="optionsBtn" type="button">⚙ Options</button>
-        <button class="btn danger" id="resetBtn" type="button">↺ Reset all</button>
       </div>
     </header>
+    <section class="main-reset" aria-label="Reset counters">
+      <div class="default-display">Default value: <strong id="defaultValueDisplay">0</strong></div>
+      <button class="btn" id="resetValuesZero" type="button">Reset all values to 0</button>
+      <button class="btn primary" id="resetValuesDefault" type="button">Reset all values to default</button>
+    </section>
     <section id="counterGrid" class="grid" aria-label="Counters"></section>
     <p class="footer">Press and hold + or − to keep counting. Your settings are saved on this device.</p>
   </main>
@@ -113,13 +121,21 @@
       </div>
       <div class="field">
         <label for="boxCount">Number of boxes</label>
-        <input id="boxCount" type="number" min="1" max="20" step="1">
+        <div class="stepper">
+          <button type="button" data-step-target="boxCount" data-step="-1" aria-label="Decrease number of boxes">−</button>
+          <input id="boxCount" type="number" min="1" max="20" step="1">
+          <button type="button" data-step-target="boxCount" data-step="1" aria-label="Increase number of boxes">+</button>
+        </div>
         <small>Choose between 1 and 20 counters.</small>
       </div>
       <div class="field">
         <label for="defaultValue">Default value</label>
-        <input id="defaultValue" type="number" step="1">
-        <small>Used when you reset all counters or add a box.</small>
+        <div class="stepper">
+          <button type="button" data-step-target="defaultValue" data-step="-1" aria-label="Decrease default value">−</button>
+          <input id="defaultValue" type="number" step="1">
+          <button type="button" data-step-target="defaultValue" data-step="1" aria-label="Increase default value">+</button>
+        </div>
+        <small>New boxes and “Reset all values to default value” use this starting value.</small>
       </div>
       <div class="field">
         <label for="boxText">Default box text</label>
@@ -142,15 +158,9 @@
           <input id="boxColor" type="color">
         </div>
       </div>
-      <div class="color-row">
-        <div class="field">
-          <label for="accentColor">Button color</label>
-          <input id="accentColor" type="color">
-        </div>
-        <div class="field">
-          <label for="textColor">Text color</label>
-          <input id="textColor" type="color">
-        </div>
+      <div class="field">
+        <label for="textColor">Text color</label>
+        <input id="textColor" type="color">
       </div>
       <div class="modal-actions">
         <button class="btn" id="cancelOptions" type="button">Cancel</button>
@@ -208,6 +218,7 @@
     }
     function render() {
       applyColors();
+      document.getElementById("defaultValueDisplay").textContent = settings.defaultValue;
       const grid = document.getElementById("counterGrid");
       grid.innerHTML = "";
       for (let i = 0; i < settings.count; i++) {
@@ -281,7 +292,6 @@
       renderNameInputs(settings.count, settings.boxNames);
       document.getElementById("pageColor").value = settings.pageColor;
       document.getElementById("boxColor").value = settings.boxColor;
-      document.getElementById("accentColor").value = settings.accentColor;
       document.getElementById("textColor").value = settings.textColor;
       overlay.classList.add("open");
     }
@@ -313,6 +323,63 @@
       }
     }
     function closeOptions() { overlay.classList.remove("open"); }
+
+    function updateIndividualNameFields() {
+      const countInput = document.getElementById("boxCount");
+      const count = clamp(Math.round(Number(countInput.value) || 1), 1, 20);
+      const names = [...settings.boxNames];
+      document.querySelectorAll("[data-box-name-index]").forEach(input => {
+        names[Number(input.dataset.boxNameIndex)] = input.value;
+      });
+      renderNameInputs(count, names);
+    }
+    document.getElementById("boxCount").addEventListener("change", updateIndividualNameFields);
+    document.getElementById("boxCount").addEventListener("input", updateIndividualNameFields);
+
+    let settingsHoldDelay = null;
+    let settingsHoldTimer = null;
+
+    function changeSettingValue(button) {
+      const input = document.getElementById(button.dataset.stepTarget);
+      const step = Number(input.step) || 1;
+      const min = input.min === "" ? -Infinity : Number(input.min);
+      const max = input.max === "" ? Infinity : Number(input.max);
+      const current = Number(input.value) || 0;
+      input.value = clamp(current + Number(button.dataset.step) * step, min, max);
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function stopSettingsHold() {
+      clearTimeout(settingsHoldDelay);
+      clearInterval(settingsHoldTimer);
+      settingsHoldDelay = settingsHoldTimer = null;
+      document.querySelectorAll("[data-step-target].held").forEach(button => button.classList.remove("held"));
+    }
+
+    document.querySelectorAll("[data-step-target]").forEach(button => {
+      button.addEventListener("pointerdown", event => {
+        if (event.button !== undefined && event.button !== 0) return;
+        event.preventDefault();
+        stopSettingsHold();
+        button.classList.add("held");
+        changeSettingValue(button);
+        settingsHoldDelay = setTimeout(() => {
+          settingsHoldTimer = setInterval(() => changeSettingValue(button), 85);
+        }, 350);
+      });
+      button.addEventListener("pointerup", stopSettingsHold);
+      button.addEventListener("pointerleave", stopSettingsHold);
+      button.addEventListener("pointercancel", stopSettingsHold);
+      button.addEventListener("contextmenu", event => event.preventDefault());
+      button.addEventListener("keydown", event => {
+        if ((event.key === " " || event.key === "Enter") && !event.repeat) {
+          event.preventDefault();
+          changeSettingValue(button);
+        }
+      });
+    });
+    window.addEventListener("blur", stopSettingsHold);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stopSettingsHold(); });
     document.getElementById("optionsBtn").addEventListener("click", openOptions);
     document.getElementById("closeOptions").addEventListener("click", closeOptions);
     document.getElementById("cancelOptions").addEventListener("click", closeOptions);
@@ -332,7 +399,6 @@
       });
       settings.pageColor = document.getElementById("pageColor").value;
       settings.boxColor = document.getElementById("boxColor").value;
-      settings.accentColor = document.getElementById("accentColor").value;
       settings.textColor = document.getElementById("textColor").value;
       settings.values = settings.values.slice(0, newCount);
       while (settings.values.length < newCount) settings.values.push(settings.defaultValue);
@@ -340,11 +406,16 @@
       render();
       closeOptions();
     });
-    document.getElementById("resetBtn").addEventListener("click", () => {
-      if (!confirm("Reset every counter to the default value?")) return;
-      settings.values = Array(settings.count).fill(settings.defaultValue);
+    function resetAllValues(value) {
+      settings.values = Array(settings.count).fill(value);
       saveSettings();
       render();
+    }
+    document.getElementById("resetValuesZero").addEventListener("click", () => {
+      resetAllValues(0);
+    });
+    document.getElementById("resetValuesDefault").addEventListener("click", () => {
+      resetAllValues(settings.defaultValue);
     });
     document.addEventListener("visibilitychange", () => { if (document.hidden) stopHold(); });
     window.addEventListener("blur", stopHold);
